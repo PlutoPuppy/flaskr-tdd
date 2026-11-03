@@ -1,19 +1,19 @@
 import os
 import pytest
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+_test_directory = TemporaryDirectory(prefix="flaskr-tdd-tests-")
+TEST_DB = Path(_test_directory.name) / "test.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 
 from project.app import app, db
 import json
 
-TEST_DB = "test.db"
-
 
 @pytest.fixture
 def client():
-    BASE_DIR = Path(__file__).resolve().parent.parent
     app.config["TESTING"] = True
-    app.config["DATABASE"] = BASE_DIR.joinpath(TEST_DB)
-    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{BASE_DIR.joinpath(TEST_DB)}"
 
     with app.app_context():
         db.create_all()  # setup
@@ -42,7 +42,7 @@ def test_index(client):
 
 def test_database(client):
     """initial test. ensure that the database exists"""
-    tester = Path("test.db").is_file()
+    tester = TEST_DB.is_file()
     assert tester
 
 
@@ -78,6 +78,10 @@ def test_messages(client):
 
 def test_delete_message(client):
     """Ensure the messages are being deleted"""
-    rv = client.get('/delete/1')
+    rv = client.get("/delete/1")
+    data = json.loads(rv.data)
+    assert data["status"] == 0
+    login(client, app.config["USERNAME"], app.config["PASSWORD"])
+    rv = client.get("/delete/1")
     data = json.loads(rv.data)
     assert data["status"] == 1
